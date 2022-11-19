@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    .
+    
 .DESCRIPTION
     This script will query all domain controllers and return a list of 
     computers where the user has logged on to. This query is optimized
@@ -15,21 +15,20 @@
     the list of logons will be created based on last 10 days.
 
 .EXAMPLE
-    C:\PS> Get-UserLastLogon -User m.tehrani
+    C:\PS> Get-UserLastLogon -User username
     
-    This command will get list of computers where (m.tehrani) has logged on to
+    This command will get list of computers where (username) has logged on to
     in last 90 days.
 
-    C:\PS> Get-UserLastLogon -User m.tehrani -Days 5
+    C:\PS> Get-UserLastLogon -User username -Days 5
 
-    This command will get list of computers where (m.tehrani) has logged on to
+    This command will get list of computers where (username) has logged on to
     in last 5 days.
 
 #>
 
-
-clear-host
-Import-Module activedirectory -ErrorAction stop
+Clear-Host
+Import-Module ActiveDirectory -ErrorAction Stop
 
 function Get-UserLastLogon {
     param (
@@ -43,7 +42,7 @@ function Get-UserLastLogon {
      [array]$Days = 90
 
            )
-begin{
+    begin{
     ## Variables ##
     [Array]$Table         = $null
     $DomainControllers    = $Server
@@ -70,69 +69,60 @@ begin{
 
 }
 
-process{   
+    process{   
 
-try
-{
-$COND = Get-ADUser $User 
-Foreach($DCName in $DomainControllers)
-{
-    $Events       = $null
-    $CounterEvent = 1
-    $Counter++
-    $Domain       = (Get-ADDomain).dnsroot
-    $UPNLength    = $Domain.length + 1 
-    Write-Progress -Activity "Filtering logs on $DCName ($Counter/$DCCount)" -Status "Finding events for ($User) with ($days) days of timespan" -percentComplete ($Counter/$DCCount*100) -Id 1
-    
-    try
-    {
-        $Events     = Get-WinEvent -FilterXml $FilterXML -ComputerName $DCName -ErrorAction stop
-        $CountEvent = $Events.count
-    }
-    
-    catch
-    {
-        Write-Warning "$_ (Occured on $DCName)"
-        continue
-    }
-    
-    foreach($Event in $Events)
-    {
-            Write-Progress -Activity "Please Wait" -Status "Processing Events $CounterEvent\$CountEvent" -percentComplete (($CounterEvent/$CountEvent)*100) -Id 2 -ParentId 1
-            $UserName   = $Event.Properties[0].Value
-            $UserLength = $UserName.length
-            $UserName   = $UserName.substring(0,$UserLength-$UPNLength)
-            $Location   = $Event.Properties[2].Value 
-            $Location   = $Location.trim("$")
-            $Time       = ($Event.TimeCreated).ToString($G)
-            $Domain     = $Event.Properties[1].Value
-            $CounterEvent++
-            
-            if ($UserName -eq $User)
-            { 
-             
-                $obj      = New-Object -TypeName PSObject -Property @{
-                            "User"     =    $UserName
-                            "Location" =    $Location
-                            "Time"     =    $Time
-                            "Domain"   =    $Domain 
-                            "DC"       =    $DCName
-                                                           }
-                        $Table += $obj
-            }
-        
-        }  
-    Write-Progress -Activity "Please Wait" -Completed
-}
-}
-catch
-{
-    Write-Host "User $user does not exist!" -ForegroundColor Yellow -BackgroundColor Red -ErrorAction stop
-}
-}
+	    try{
+		    $COND = Get-ADUser $User 
+		    Foreach($DCName in $DomainControllers){
+		        $Events       = $null
+		        $CounterEvent = 1
+		        $Counter++
+		        $Domain       = (Get-ADDomain).dnsroot
+		        $UPNLength    = $Domain.length + 1 
+		        Write-Progress -Activity "Filtering logs on $DCName ($Counter/$DCCount)" -Status "Finding events for ($User) with ($days) days of timespan" -percentComplete ($Counter/$DCCount*100) -Id 1
 
-end{
-$Table = $Table | Where-Object {($_.Location -notin $AllDomainControllers) -and ($_.Location -ne $ForestRoot) -and ($_.Location -notin $ExclusionList)} 
-$Table | Sort Time | FT Time,User,Location,Domain,DC -AutoSize 
-}
+		        try{
+			        $Events     = Get-WinEvent -FilterXml $FilterXML -ComputerName $DCName -ErrorAction stop
+			        $CountEvent = $Events.count
+		        }catch{
+			        Write-Warning "$_ (Occured on $DCName)"
+			        continue
+		        }
+
+		        foreach($Event in $Events){
+			        Write-Progress -Activity "Please Wait" -Status "Processing Events $CounterEvent\$CountEvent" -percentComplete (($CounterEvent/$CountEvent)*100) -Id 2 -ParentId 1
+			        $UserName   = $Event.Properties[0].Value
+			        $UserLength = $UserName.length
+			        $UserName   = $UserName.substring(0,$UserLength-$UPNLength)
+			        $Location   = $Event.Properties[2].Value 
+			        $Location   = $Location.trim("$")
+			        $Time       = ($Event.TimeCreated).ToString($G)
+			        $Domain     = $Event.Properties[1].Value
+			        $CounterEvent++
+
+			        if ($UserName -eq $User){ 
+
+				    $obj      = New-Object -TypeName PSObject -Property @{
+					        "User"     =    $UserName
+					        "Location" =    $Location
+					        "Time"     =    $Time
+					        "Domain"   =    $Domain 
+					        "DC"       =    $DCName
+									       }
+					    $Table += $obj
+			        }
+
+			    }  
+		        Write-Progress -Activity "Please Wait" -Completed
+		    }
+	    }
+	    catch{
+	        Write-Host "User $user does not exist!" -ForegroundColor Yellow -BackgroundColor Red -ErrorAction stop
+	    }
+    }
+
+    end{
+        $Table = $Table | Where-Object {($_.Location -notin $AllDomainControllers) -and ($_.Location -ne $ForestRoot) -and ($_.Location -notin $ExclusionList)} 
+        $Table | Sort Time | FT Time,User,Location,Domain,DC -AutoSize 
+    }
 }
