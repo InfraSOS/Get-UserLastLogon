@@ -25,9 +25,6 @@
     This command will get list of computers where (m.tehrani) has logged on to
     in last 5 days.
 
-.NOTES
-    Author: Mahdi Tehrani
-    Date  : March 18, 2017   
 #>
 
 
